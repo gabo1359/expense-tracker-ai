@@ -3,10 +3,10 @@
 import { useState } from "react";
 import { useExpenses } from "@/hooks/useExpenses";
 import { Expense } from "@/types/expense";
-import { exportToCSV } from "@/lib/utils";
 import ExpenseForm from "@/components/ExpenseForm";
 import ExpenseList from "@/components/ExpenseList";
 import Dashboard from "@/components/Dashboard";
+import ExportModal from "@/components/ExportModal";
 
 type Tab = "dashboard" | "expenses";
 
@@ -25,6 +25,7 @@ export default function Home() {
   const [activeTab, setActiveTab] = useState<Tab>("dashboard");
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
+  const [showExport, setShowExport] = useState(false);
 
   function handleEdit(expense: Expense) {
     setEditingExpense(expense);
@@ -111,9 +112,9 @@ export default function Home() {
 
               {expenses.length > 0 && (
                 <button
-                  onClick={() => exportToCSV(expenses)}
-                  className="ml-2 px-3 py-1.5 text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-xl transition"
-                  title="Export to CSV"
+                  onClick={() => setShowExport(true)}
+                  className="ml-2 px-3 py-1.5 text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-xl transition flex items-center gap-1.5"
+                  title="Export Data"
                 >
                   <svg
                     className="w-4 h-4"
@@ -128,6 +129,7 @@ export default function Home() {
                       d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
                     />
                   </svg>
+                  <span className="hidden sm:inline text-xs">Export</span>
                 </button>
               )}
             </div>
@@ -167,6 +169,13 @@ export default function Home() {
           </div>
         )}
       </main>
+
+      {/* Export modal */}
+      <ExportModal
+        expenses={expenses}
+        isOpen={showExport}
+        onClose={() => setShowExport(false)}
+      />
 
       {/* Delete confirmation modal */}
       {showDeleteConfirm && (
