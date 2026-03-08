@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import { Expense, CATEGORIES } from "@/types/expense";
-import { formatCurrency, getCategoryColor } from "@/lib/utils";
+import { formatCurrency, getCategoryColor, exportToCSV } from "@/lib/utils";
 import {
   PieChart,
   Pie,
@@ -105,6 +105,16 @@ export default function Dashboard({ expenses }: DashboardProps) {
 
   return (
     <div className="space-y-6">
+      <div className="flex justify-end">
+        <button
+          onClick={() => exportToCSV(expenses)}
+          disabled={expenses.length === 0}
+          className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+        >
+          Export CSV
+        </button>
+      </div>
+
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {summaryCards.map((card) => (
           <div
