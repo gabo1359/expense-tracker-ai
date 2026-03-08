@@ -3,12 +3,12 @@
 import { useState } from "react";
 import { useExpenses } from "@/hooks/useExpenses";
 import { Expense } from "@/types/expense";
-import { exportToCSV } from "@/lib/utils";
 import ExpenseForm from "@/components/ExpenseForm";
 import ExpenseList from "@/components/ExpenseList";
 import Dashboard from "@/components/Dashboard";
+import ExportHub from "@/components/ExportHub";
 
-type Tab = "dashboard" | "expenses";
+type Tab = "dashboard" | "expenses" | "export";
 
 export default function Home() {
   const {
@@ -85,52 +85,21 @@ export default function Home() {
               </h1>
             </div>
 
-            <div className="flex items-center gap-2">
-              <nav className="flex bg-gray-100 rounded-xl p-1">
+            <nav className="flex bg-gray-100 rounded-xl p-1">
+              {(["dashboard", "expenses", "export"] as const).map((tab) => (
                 <button
-                  onClick={() => setActiveTab("dashboard")}
+                  key={tab}
+                  onClick={() => setActiveTab(tab)}
                   className={`px-4 py-1.5 rounded-lg text-sm font-medium transition ${
-                    activeTab === "dashboard"
+                    activeTab === tab
                       ? "bg-white text-gray-900 shadow-sm"
                       : "text-gray-500 hover:text-gray-700"
                   }`}
                 >
-                  Dashboard
+                  {tab === "export" ? "Export Hub" : tab.charAt(0).toUpperCase() + tab.slice(1)}
                 </button>
-                <button
-                  onClick={() => setActiveTab("expenses")}
-                  className={`px-4 py-1.5 rounded-lg text-sm font-medium transition ${
-                    activeTab === "expenses"
-                      ? "bg-white text-gray-900 shadow-sm"
-                      : "text-gray-500 hover:text-gray-700"
-                  }`}
-                >
-                  Expenses
-                </button>
-              </nav>
-
-              {expenses.length > 0 && (
-                <button
-                  onClick={() => exportToCSV(expenses)}
-                  className="ml-2 px-3 py-1.5 text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-xl transition"
-                  title="Export to CSV"
-                >
-                  <svg
-                    className="w-4 h-4"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    strokeWidth={2}
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
-                    />
-                  </svg>
-                </button>
-              )}
-            </div>
+              ))}
+            </nav>
           </div>
         </div>
       </header>
@@ -166,6 +135,8 @@ export default function Home() {
             </div>
           </div>
         )}
+
+        {activeTab === "export" && <ExportHub expenses={expenses} />}
       </main>
 
       {/* Delete confirmation modal */}
