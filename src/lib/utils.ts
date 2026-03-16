@@ -1,11 +1,9 @@
-import { Expense, Category, ExpenseFilters } from "@/types/expense";
+import { Expense, Category, Currency, ExpenseFilters } from "@/types/expense";
 import { isWithinInterval, parseISO } from "date-fns";
+import { formatCurrencyAmount } from "@/lib/currency";
 
-export function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-  }).format(amount);
+export function formatCurrency(amount: number, currency: Currency = "USD"): string {
+  return formatCurrencyAmount(amount, currency);
 }
 
 export function filterExpenses(
@@ -43,12 +41,13 @@ export function filterExpenses(
 }
 
 export function exportToCSV(expenses: Expense[]): void {
-  const headers = ["Date", "Category", "Description", "Amount"];
+  const headers = ["Date", "Category", "Description", "Amount", "Currency"];
   const rows = expenses.map((e) => [
     e.date,
     e.category,
     `"${e.description.replace(/"/g, '""')}"`,
     e.amount.toFixed(2),
+    e.currency || "USD",
   ]);
 
   const csv = [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
@@ -75,12 +74,12 @@ export function getCategoryColor(category: Category): string {
 
 export function getCategoryEmoji(category: Category): string {
   const emojis: Record<Category, string> = {
-    Food: "🍔",
-    Transportation: "🚗",
-    Entertainment: "🎬",
-    Shopping: "🛍️",
-    Bills: "📄",
-    Other: "📌",
+    Food: "\uD83C\uDF54",
+    Transportation: "\uD83D\uDE97",
+    Entertainment: "\uD83C\uDFAC",
+    Shopping: "\uD83D\uDECD\uFE0F",
+    Bills: "\uD83D\uDCC4",
+    Other: "\uD83D\uDCCC",
   };
   return emojis[category];
 }

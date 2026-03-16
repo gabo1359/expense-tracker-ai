@@ -1,20 +1,24 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Expense, Category, CATEGORIES } from "@/types/expense";
+import { Expense, Category, Currency, CATEGORIES, CURRENCIES } from "@/types/expense";
+import { getCurrencySymbol } from "@/lib/currency";
 
 interface ExpenseFormProps {
   onSubmit: (data: Omit<Expense, "id" | "createdAt">) => void;
   editingExpense?: Expense | null;
   onCancelEdit?: () => void;
+  baseCurrency: Currency;
 }
 
 export default function ExpenseForm({
   onSubmit,
   editingExpense,
   onCancelEdit,
+  baseCurrency,
 }: ExpenseFormProps) {
   const [amount, setAmount] = useState("");
+  const [currency, setCurrency] = useState<Currency>(baseCurrency);
   const [category, setCategory] = useState<Category>("Food");
   const [description, setDescription] = useState("");
   const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
@@ -24,11 +28,18 @@ export default function ExpenseForm({
   useEffect(() => {
     if (editingExpense) {
       setAmount(editingExpense.amount.toString());
+      setCurrency(editingExpense.currency || "USD");
       setCategory(editingExpense.category);
       setDescription(editingExpense.description);
       setDate(editingExpense.date);
     }
   }, [editingExpense]);
+
+  useEffect(() => {
+    if (!editingExpense) {
+      setCurrency(baseCurrency);
+    }
+  }, [baseCurrency, editingExpense]);
 
   function validate(): boolean {
     const newErrors: Record<string, string> = {};
@@ -51,6 +62,7 @@ export default function ExpenseForm({
 
     onSubmit({
       amount: parseFloat(Number(amount).toFixed(2)),
+      currency,
       category,
       description: description.trim(),
       date,
@@ -61,6 +73,7 @@ export default function ExpenseForm({
       setDescription("");
       setDate(new Date().toISOString().split("T")[0]);
       setCategory("Food");
+      setCurrency(baseCurrency);
       setShowSuccess(true);
       setTimeout(() => setShowSuccess(false), 2000);
     } else {
@@ -86,19 +99,34 @@ export default function ExpenseForm({
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
             Amount
           </label>
-          <div className="relative">
-            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500 text-sm">$</span>
-            <input
-              type="number"
-              step="0.01"
-              min="0"
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-              placeholder="0.00"
-              className={`w-full pl-7 pr-4 py-2.5 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition bg-white dark:bg-gray-700 dark:text-gray-100 ${
-                errors.amount ? "border-red-300 bg-red-50 dark:border-red-500 dark:bg-red-900/20" : "border-gray-200 dark:border-gray-600"
-              }`}
-            />
+          <div className="flex gap-2">
+            <div className="relative flex-1">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500 text-sm">
+                {getCurrencySymbol(currency)}
+              </span>
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+                placeholder="0.00"
+                className={`w-full pl-7 pr-4 py-2.5 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition bg-white dark:bg-gray-700 dark:text-gray-100 ${
+                  errors.amount ? "border-red-300 bg-red-50 dark:border-red-500 dark:bg-red-900/20" : "border-gray-200 dark:border-gray-600"
+                }`}
+              />
+            </div>
+            <select
+              value={currency}
+              onChange={(e) => setCurrency(e.target.value as Currency)}
+              className="px-3 py-2.5 border border-gray-200 dark:border-gray-600 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition appearance-none bg-white dark:bg-gray-700 dark:text-gray-100 font-medium w-24"
+            >
+              {CURRENCIES.map((c) => (
+                <option key={c.code} value={c.code}>
+                  {c.code}
+                </option>
+              ))}
+            </select>
           </div>
           {errors.amount && (
             <p className="mt-1 text-xs text-red-500 dark:text-red-400">{errors.amount}</p>

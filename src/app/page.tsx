@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useExpenses } from "@/hooks/useExpenses";
-import { Expense } from "@/types/expense";
+import { Expense, Currency, CURRENCIES } from "@/types/expense";
 import { exportToCSV } from "@/lib/utils";
 import { useTheme } from "@/contexts/ThemeContext";
 import ExpenseForm from "@/components/ExpenseForm";
@@ -21,6 +21,8 @@ export default function Home() {
     updateExpense,
     deleteExpense,
     isLoaded,
+    baseCurrency,
+    setBaseCurrency,
   } = useExpenses();
 
   const { resolvedTheme, toggleTheme } = useTheme();
@@ -111,6 +113,19 @@ export default function Home() {
                 </button>
               </nav>
 
+              <select
+                value={baseCurrency}
+                onChange={(e) => setBaseCurrency(e.target.value as Currency)}
+                className="ml-1 px-2 py-1.5 border border-gray-200 dark:border-gray-600 rounded-xl text-sm font-medium text-gray-600 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition appearance-none bg-white dark:bg-gray-700 cursor-pointer"
+                title="Base currency"
+              >
+                {CURRENCIES.map((c) => (
+                  <option key={c.code} value={c.code}>
+                    {c.code}
+                  </option>
+                ))}
+              </select>
+
               <button
                 onClick={toggleTheme}
                 className="ml-1 p-2 text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-xl transition"
@@ -157,8 +172,8 @@ export default function Home() {
       <main className="max-w-6xl mx-auto px-4 sm:px-6 py-8">
         {activeTab === "dashboard" && (
           <div className="space-y-6">
-            <Dashboard expenses={expenses} />
-            <ExpenseForm onSubmit={addExpense} />
+            <Dashboard expenses={expenses} baseCurrency={baseCurrency} />
+            <ExpenseForm onSubmit={addExpense} baseCurrency={baseCurrency} />
           </div>
         )}
 
@@ -170,6 +185,7 @@ export default function Home() {
                   onSubmit={editingExpense ? handleUpdate : addExpense}
                   editingExpense={editingExpense}
                   onCancelEdit={() => setEditingExpense(null)}
+                  baseCurrency={baseCurrency}
                 />
               </div>
             </div>
@@ -180,6 +196,7 @@ export default function Home() {
                 onFilterChange={setFilters}
                 onEdit={handleEdit}
                 onDelete={handleDelete}
+                baseCurrency={baseCurrency}
               />
             </div>
           </div>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Expense, ExpenseFilters } from "@/types/expense";
+import { Expense, Currency, ExpenseFilters } from "@/types/expense";
 import * as storage from "@/lib/storage";
 import { filterExpenses } from "@/lib/utils";
 import { v4 as uuidv4 } from "uuid";
@@ -17,10 +17,18 @@ export function useExpenses() {
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [filters, setFilters] = useState<ExpenseFilters>(defaultFilters);
   const [isLoaded, setIsLoaded] = useState(false);
+  const [baseCurrency, setBaseCurrencyState] = useState<Currency>("USD");
 
   useEffect(() => {
     setExpenses(storage.getExpenses());
+    const settings = storage.getCurrencySettings();
+    setBaseCurrencyState(settings.baseCurrency);
     setIsLoaded(true);
+  }, []);
+
+  const setBaseCurrency = useCallback((currency: Currency) => {
+    setBaseCurrencyState(currency);
+    storage.saveCurrencySettings({ baseCurrency: currency });
   }, []);
 
   const addExpense = useCallback(
@@ -57,5 +65,7 @@ export function useExpenses() {
     updateExpense,
     deleteExpense,
     isLoaded,
+    baseCurrency,
+    setBaseCurrency,
   };
 }

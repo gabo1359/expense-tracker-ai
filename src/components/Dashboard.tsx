@@ -1,9 +1,10 @@
 "use client";
 
 import { useMemo } from "react";
-import { Expense, CATEGORIES } from "@/types/expense";
+import { Expense, Currency, CATEGORIES } from "@/types/expense";
 import { formatCurrency, getCategoryColor } from "@/lib/utils";
 import { useTheme } from "@/contexts/ThemeContext";
+import { convertCurrency } from "@/lib/currency";
 import {
   PieChart,
   Pie,
@@ -20,11 +21,17 @@ import { format, parseISO, startOfMonth, endOfMonth, isWithinInterval } from "da
 
 interface DashboardProps {
   expenses: Expense[];
+  baseCurrency: Currency;
 }
 
-export default function Dashboard({ expenses }: DashboardProps) {
+export default function Dashboard({ expenses, baseCurrency }: DashboardProps) {
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme === "dark";
+
+  function toBase(expense: Expense): number {
+    const from = expense.currency || "USD";
+    return convertCurrency(expense.amount, from, baseCurrency);
+  }
 
   const stats = useMemo(() => {
     const now = new Date();
@@ -36,14 +43,14 @@ export default function Dashboard({ expenses }: DashboardProps) {
       return isWithinInterval(d, { start: monthStart, end: monthEnd });
     });
 
-    const total = expenses.reduce((sum, e) => sum + e.amount, 0);
-    const monthlyTotal = monthlyExpenses.reduce((sum, e) => sum + e.amount, 0);
+    const total = expenses.reduce((sum, e) => sum + toBase(e), 0);
+    const monthlyTotal = monthlyExpenses.reduce((sum, e) => sum + toBase(e), 0);
 
     const byCategory = CATEGORIES.map((cat) => {
       const catExpenses = expenses.filter((e) => e.category === cat);
       return {
         name: cat,
-        value: catExpenses.reduce((sum, e) => sum + e.amount, 0),
+        value: catExpenses.reduce((sum, e) => sum + toBase(e), 0),
         count: catExpenses.length,
         color: getCategoryColor(cat),
       };
@@ -63,7 +70,7 @@ export default function Dashboard({ expenses }: DashboardProps) {
           const ed = parseISO(e.date);
           return isWithinInterval(ed, { start: mStart, end: mEnd });
         })
-        .reduce((sum, e) => sum + e.amount, 0);
+        .reduce((sum, e) => sum + toBase(e), 0);
       monthlyData.push({
         month: format(d, "MMM"),
         amount: parseFloat(amount.toFixed(2)),
@@ -75,29 +82,30 @@ export default function Dashboard({ expenses }: DashboardProps) {
       : 0;
 
     return { total, monthlyTotal, byCategory, topCategory, monthlyData, avgMonthly };
-  }, [expenses]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [expenses, baseCurrency]);
 
   const summaryCards = [
     {
       label: "Total Spending",
-      value: formatCurrency(stats.total),
+      value: formatCurrency(stats.total, baseCurrency),
       sublabel: `${expenses.length} expenses`,
     },
     {
       label: "This Month",
-      value: formatCurrency(stats.monthlyTotal),
+      value: formatCurrency(stats.monthlyTotal, baseCurrency),
       sublabel: format(new Date(), "MMMM yyyy"),
     },
     {
       label: "Monthly Average",
-      value: formatCurrency(stats.avgMonthly),
+      value: formatCurrency(stats.avgMonthly, baseCurrency),
       sublabel: "Last 6 months",
     },
     {
       label: "Top Category",
       value: stats.topCategory?.name ?? "N/A",
       sublabel: stats.topCategory
-        ? formatCurrency(stats.topCategory.value)
+        ? formatCurrency(stats.topCategory.value, baseCurrency)
         : "No data",
     },
   ];
@@ -133,7 +141,7 @@ export default function Dashboard({ expenses }: DashboardProps) {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-6 transition-colors">
             <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-4">
-              Monthly Spending
+              Monthly Spending ({baseCurrency})
             </h3>
             <ResponsiveContainer width="100%" height={240}>
               <BarChart data={stats.monthlyData}>
@@ -148,10 +156,10 @@ export default function Dashboard({ expenses }: DashboardProps) {
                   tick={{ fontSize: 12, fill: isDark ? "#9ca3af" : "#94a3b8" }}
                   axisLine={false}
                   tickLine={false}
-                  tickFormatter={(v) => `$${v}`}
+                  tickFormatter={(v) => formatCurrency(v, baseCurrency)}
                 />
                 <Tooltip
-                  formatter={(value) => [formatCurrency(Number(value)), "Spent"]}
+                  formatter={(value) => [formatCurrency(Number(value), baseCurrency), "Spent"]}
                   contentStyle={tooltipStyle}
                 />
                 <Bar dataKey="amount" fill="#6366f1" radius={[6, 6, 0, 0]} />
@@ -181,7 +189,7 @@ export default function Dashboard({ expenses }: DashboardProps) {
                       ))}
                     </Pie>
                     <Tooltip
-                      formatter={(value) => formatCurrency(Number(value))}
+                      formatter={(value) => formatCurrency(Number(value), baseCurrency)}
                       contentStyle={tooltipStyle}
                     />
                   </PieChart>
@@ -199,7 +207,7 @@ export default function Dashboard({ expenses }: DashboardProps) {
                           {cat.name}
                         </span>
                         <span className="text-xs font-medium text-gray-900 dark:text-gray-100">
-                          {formatCurrency(cat.value)}
+                          {formatCurrency(cat.value, baseCurrency)}
                         </span>
                       </div>
                     ))}

@@ -1,7 +1,8 @@
 "use client";
 
-import { Expense, Category, CATEGORIES, ExpenseFilters } from "@/types/expense";
+import { Expense, Category, Currency, CATEGORIES, ExpenseFilters } from "@/types/expense";
 import { formatCurrency, getCategoryColor, getCategoryEmoji } from "@/lib/utils";
+import { convertCurrency } from "@/lib/currency";
 import { format, parseISO } from "date-fns";
 
 interface ExpenseListProps {
@@ -10,6 +11,7 @@ interface ExpenseListProps {
   onFilterChange: (filters: ExpenseFilters) => void;
   onEdit: (expense: Expense) => void;
   onDelete: (id: string) => void;
+  baseCurrency: Currency;
 }
 
 export default function ExpenseList({
@@ -18,6 +20,7 @@ export default function ExpenseList({
   onFilterChange,
   onEdit,
   onDelete,
+  baseCurrency,
 }: ExpenseListProps) {
   return (
     <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 transition-colors">
@@ -100,7 +103,7 @@ export default function ExpenseList({
       <div className="divide-y divide-gray-50 dark:divide-gray-700/50">
         {expenses.length === 0 ? (
           <div className="p-12 text-center">
-            <div className="text-4xl mb-3">📭</div>
+            <div className="text-4xl mb-3">{"\uD83D\uDCED"}</div>
             <p className="text-gray-500 dark:text-gray-400 text-sm">No expenses found</p>
             <p className="text-gray-400 dark:text-gray-500 text-xs mt-1">
               {filters.search || filters.category !== "All" || filters.dateFrom || filters.dateTo
@@ -109,60 +112,73 @@ export default function ExpenseList({
             </p>
           </div>
         ) : (
-          expenses.map((expense) => (
-            <div
-              key={expense.id}
-              className="px-6 py-4 flex items-center gap-4 hover:bg-gray-50/50 dark:hover:bg-gray-700/30 transition group"
-            >
+          expenses.map((expense) => {
+            const expenseCurrency = expense.currency || "USD";
+            const isDifferentCurrency = expenseCurrency !== baseCurrency;
+            const convertedAmount = isDifferentCurrency
+              ? convertCurrency(expense.amount, expenseCurrency, baseCurrency)
+              : expense.amount;
+
+            return (
               <div
-                className="w-10 h-10 rounded-xl flex items-center justify-center text-lg flex-shrink-0"
-                style={{
-                  backgroundColor: getCategoryColor(expense.category) + "15",
-                }}
+                key={expense.id}
+                className="px-6 py-4 flex items-center gap-4 hover:bg-gray-50/50 dark:hover:bg-gray-700/30 transition group"
               >
-                {getCategoryEmoji(expense.category)}
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
-                  {expense.description}
-                </p>
-                <div className="flex items-center gap-2 mt-0.5">
-                  <span
-                    className="text-xs font-medium px-2 py-0.5 rounded-full"
-                    style={{
-                      color: getCategoryColor(expense.category),
-                      backgroundColor:
-                        getCategoryColor(expense.category) + "15",
-                    }}
-                  >
-                    {expense.category}
-                  </span>
-                  <span className="text-xs text-gray-400 dark:text-gray-500">
-                    {format(parseISO(expense.date), "MMM d, yyyy")}
-                  </span>
+                <div
+                  className="w-10 h-10 rounded-xl flex items-center justify-center text-lg flex-shrink-0"
+                  style={{
+                    backgroundColor: getCategoryColor(expense.category) + "15",
+                  }}
+                >
+                  {getCategoryEmoji(expense.category)}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
+                    {expense.description}
+                  </p>
+                  <div className="flex items-center gap-2 mt-0.5">
+                    <span
+                      className="text-xs font-medium px-2 py-0.5 rounded-full"
+                      style={{
+                        color: getCategoryColor(expense.category),
+                        backgroundColor:
+                          getCategoryColor(expense.category) + "15",
+                      }}
+                    >
+                      {expense.category}
+                    </span>
+                    <span className="text-xs text-gray-400 dark:text-gray-500">
+                      {format(parseISO(expense.date), "MMM d, yyyy")}
+                    </span>
+                  </div>
+                </div>
+                <div className="text-right flex-shrink-0">
+                  <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                    {formatCurrency(expense.amount, expenseCurrency)}
+                  </p>
+                  {isDifferentCurrency && (
+                    <p className="text-xs text-gray-400 dark:text-gray-500">
+                      {"\u2248"} {formatCurrency(convertedAmount, baseCurrency)}
+                    </p>
+                  )}
+                  <div className="flex gap-1 mt-1 opacity-0 group-hover:opacity-100 transition">
+                    <button
+                      onClick={() => onEdit(expense)}
+                      className="text-xs text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 font-medium px-2 py-0.5 rounded hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition"
+                    >
+                      Edit
+                    </button>
+                    <button
+                      onClick={() => onDelete(expense.id)}
+                      className="text-xs text-red-500 dark:text-red-400 hover:text-red-600 dark:hover:text-red-300 font-medium px-2 py-0.5 rounded hover:bg-red-50 dark:hover:bg-red-900/30 transition"
+                    >
+                      Delete
+                    </button>
+                  </div>
                 </div>
               </div>
-              <div className="text-right flex-shrink-0">
-                <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-                  {formatCurrency(expense.amount)}
-                </p>
-                <div className="flex gap-1 mt-1 opacity-0 group-hover:opacity-100 transition">
-                  <button
-                    onClick={() => onEdit(expense)}
-                    className="text-xs text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 font-medium px-2 py-0.5 rounded hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition"
-                  >
-                    Edit
-                  </button>
-                  <button
-                    onClick={() => onDelete(expense.id)}
-                    className="text-xs text-red-500 dark:text-red-400 hover:text-red-600 dark:hover:text-red-300 font-medium px-2 py-0.5 rounded hover:bg-red-50 dark:hover:bg-red-900/30 transition"
-                  >
-                    Delete
-                  </button>
-                </div>
-              </div>
-            </div>
-          ))
+            );
+          })
         )}
       </div>
     </div>
