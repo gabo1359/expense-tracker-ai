@@ -1,0 +1,380 @@
+================================================================================
+ML-POWERED EXPENSE CATEGORIZATION SYSTEM — TECHNICAL ANALYSIS
+================================================================================
+Date: 2026-03-15
+Context: Next.js 14 client-side app, localStorage persistence, no backend
+
+================================================================================
+1. CORE TECHNICAL CHALLENGES
+================================================================================
+
+1.1 No Backend / Client-Only Architecture
+  - The app runs entirely in the browser with localStorage. There is no server
+    to host ML models, no database to aggregate training data, and no API layer.
+  - Options:
+    (a) Client-side ML using TensorFlow.js or ONNX Runtime Web — model runs in
+        the browser, training data stays local. This is the most privacy-
+        friendly but limits model complexity and training corpus size.
+    (b) Lightweight heuristic engine — not true ML, but a statistical approach
+        using Naive Bayes or TF-IDF + cosine similarity implemented in plain
+        TypeScript. Small bundle size, no framework dependency.
+    (c) External API (e.g., Claude API, OpenAI) — send descriptions to an LLM
+        for classification. Requires API keys, network calls, cost management,
+        and raises privacy concerns since expense data leaves the device.
+  - Recommendation: Start with (b) — a client-side Naive Bayes text classifier.
+    It has zero external dependencies, trains on the user's own data, ships as
+    ~200 lines of TypeScript, and works offline. Graduate to TensorFlow.js only
+    if accuracy demands it.
+
+1.2 Cold Start Problem
+  - A new user has zero historical expenses. The model has nothing to learn from.
+  - Solution: Ship a pre-trained baseline model with common keyword-to-category
+    mappings (e.g., "uber" -> Transportation, "netflix" -> Bills, "pizza" ->
+    Food). This baseline is overridden as the user's personal data accumulates.
+  - The baseline can be a static JSON file (~2-5 KB) with word frequency vectors
+    per category, built from a curated seed dataset.
+
+1.3 Small & Imbalanced Training Sets
+  - Users may have 10-50 expenses, heavily skewed toward certain categories.
+  - Mitigation: Use Laplace smoothing in the Naive Bayes classifier to handle
+    unseen words. Weight recent expenses more heavily (exponential decay) so the
+    model adapts to changing spending patterns.
+
+1.4 Category Granularity
+  - Current categories are broad (Food, Transportation, Entertainment, Shopping,
+    Bills, Other). "Other" is a catch-all that the model will struggle with.
+  - Consider: Allow user-defined sub-categories or tags in a future iteration,
+    but for v1, keep the existing 6-category taxonomy.
+
+1.5 Real-Time Prediction Performance
+  - Prediction must happen on every keystroke (or on blur) in the description
+    field. Naive Bayes classification on a vocabulary of <10K words takes <1ms
+    in JavaScript — this is a non-issue for the heuristic approach.
+
+================================================================================
+2. DATA COLLECTION & STORAGE
+================================================================================
+
+2.1 Training Data Source
+  - Every expense the user creates or edits becomes a training sample:
+      { description: string, category: Category }
+  - When a user accepts a suggestion, that's an implicit positive signal.
+  - When a user changes the auto-selected category, that's a correction signal
+    (negative for the suggested category, positive for the chosen one).
+
+2.2 What to Store
+  New localStorage key: "expense-tracker-ml-model"
+  Structure:
+    {
+      version: number,                    // Schema version for migrations
+      trainedAt: string,                  // ISO timestamp of last training
+      sampleCount: number,               // Total training samples
+      categoryPriors: Record<Category, number>,  // P(category)
+      wordFrequencies: Record<Category, Record<string, number>>,  // word counts per category
+      vocabularySize: number,            // Total unique words
+      corrections: Array<{              // Recent corrections for active learning
+        description: string,
+        suggestedCategory: Category,
+        actualCategory: Category,
+        timestamp: string
+      }>
+    }
+  Estimated size: ~20-50 KB for a user with 1000+ expenses — well within
+  localStorage's 5-10 MB limit.
+
+2.3 Data Pipeline
+  (a) On app load: Load model from localStorage (or initialize with baseline).
+  (b) On expense save: Retrain incrementally (update word counts and priors —
+      O(n) where n = words in description, not full retraining).
+  (c) On expense edit (category changed): Apply correction — decrement counts
+      for old category, increment for new category.
+  (d) On expense delete: Optionally retrain from scratch using remaining
+      expenses (or leave model as-is for simplicity — deleted expenses still
+      contributed valid signal).
+
+================================================================================
+3. ML APPROACH — NAIVE BAYES TEXT CLASSIFIER
+================================================================================
+
+3.1 Why Naive Bayes
+  - Works extremely well for text classification with small datasets.
+  - Incremental training (no need to retrain from scratch on each new sample).
+  - Interpretable: you can inspect which words drive each category.
+  - Tiny implementation footprint (~150-200 lines of TypeScript).
+  - No dependencies — ships as part of the existing bundle.
+
+3.2 Algorithm Detail
+
+  Text Preprocessing:
+    1. Lowercase the description
+    2. Remove punctuation and special characters
+    3. Tokenize on whitespace
+    4. Optional: simple stemming (remove trailing "s", "ing", "ed") — but avoid
+       a full stemming library to keep bundle small
+    5. Remove stop words (a, the, is, at, on, in, for, etc.)
+
+  Training (incremental):
+    For each expense (description, category):
+      1. Preprocess description -> tokens[]
+      2. categoryPriors[category] += 1
+      3. For each token: wordFrequencies[category][token] += 1
+      4. vocabularySize = count of all unique tokens across all categories
+
+  Prediction:
+    For a given description:
+      1. Preprocess -> tokens[]
+      2. For each category, compute log-posterior:
+         log P(category | tokens) = log P(category)
+           + SUM over tokens: log P(token | category)
+         where:
+           P(category) = categoryPriors[category] / totalSamples
+           P(token | category) = (wordFrequencies[category][token] + 1)
+                                 / (totalWordsInCategory + vocabularySize)
+           (Laplace smoothing with alpha=1)
+      3. Return category with highest log-posterior
+      4. Also return confidence = softmax of log-posteriors to determine whether
+         to show the suggestion prominently or subtly
+
+3.3 Confidence Thresholds
+  - High confidence (>0.7): Auto-select the category in the form, show a subtle
+    "suggested" badge. User can still change it.
+  - Medium confidence (0.4-0.7): Show a suggestion chip below the category
+    dropdown: "Did you mean: Transportation?" User taps to accept.
+  - Low confidence (<0.4): Don't suggest. Let user pick manually.
+
+3.4 Baseline / Seed Model
+  Pre-trained word-category associations shipped with the app:
+
+  Food: restaurant, lunch, dinner, breakfast, coffee, cafe, pizza, burger,
+        grocery, groceries, supermarket, snack, sushi, takeout, doordash,
+        ubereats, grubhub, starbucks, mcdonald, chipotle, bakery, bar, drink
+
+  Transportation: uber, lyft, taxi, gas, fuel, parking, metro, subway, bus,
+                  train, flight, airline, toll, car, repair, oil, tire, rental
+
+  Entertainment: movie, cinema, netflix, spotify, hulu, disney, concert, game,
+                 ticket, theater, museum, subscription, streaming, hbo, show
+
+  Shopping: amazon, store, clothes, shoes, electronics, target, walmart, ikea,
+            online, order, purchase, return, mall, outlet, fashion
+
+  Bills: rent, mortgage, electric, electricity, water, internet, phone, cell,
+         insurance, utility, cable, wifi, subscription, tax, payment, bill
+
+  Other: (low prior — catches anything that doesn't match above)
+
+3.5 Future Enhancements (v2+)
+  - TF-IDF weighting instead of raw counts for better discrimination
+  - Bigrams (e.g., "car wash" vs just "car" + "wash")
+  - Amount as a feature (high amounts correlate with Bills/Shopping, low with
+    Food/Transportation)
+  - Time-of-day and day-of-week features
+  - Merchant name extraction and lookup table
+  - TensorFlow.js LSTM for sequence-aware classification
+
+================================================================================
+4. PRIVACY & DATA SECURITY
+================================================================================
+
+4.1 Data Stays on Device
+  - The Naive Bayes approach requires ZERO network calls. All training data,
+    the model itself, and predictions happen entirely in the browser.
+  - No expense descriptions, amounts, or categories are ever transmitted.
+  - This is a major advantage over the API-based approach.
+
+4.2 localStorage Considerations
+  - localStorage is accessible to any JavaScript running on the same origin.
+    This is the existing security model for all expense data in the app.
+  - If the app were to add authentication in the future, consider encrypting
+    localStorage values with a user-derived key.
+  - Clear model data when user clears expense data (already handled by the
+    existing pattern — add model cleanup to any "clear all data" function).
+
+4.3 Data Export / Deletion
+  - The model should be included in data exports (or at minimum, be
+    rebuildable from exported expenses).
+  - "Delete all data" must also wipe the ML model from localStorage.
+  - Consider a "Reset suggestions" button that clears only the learned model
+    and reverts to the baseline.
+
+4.4 If API-Based Approach is Chosen Later
+  - Descriptions should be sent without amounts or dates (minimize PII).
+  - Use the Claude API with ephemeral mode / no logging if available.
+  - Cache API responses aggressively to minimize calls.
+  - Provide a user toggle: "Enable cloud-powered suggestions" (opt-in).
+
+================================================================================
+5. USER EXPERIENCE FLOW
+================================================================================
+
+5.1 Adding an Expense (Primary Flow)
+  1. User opens the expense form.
+  2. User types in the description field (e.g., "Uber to airport").
+  3. On blur (or after a 300ms debounce while typing):
+     - The classifier runs on the current description text.
+     - If confidence > 0.7: The category dropdown auto-selects the predicted
+       category. A small label appears: "Auto-suggested" in muted text.
+     - If confidence 0.4-0.7: A suggestion chip appears below the dropdown:
+       "Suggestion: Transportation" — user can click to apply.
+     - If confidence < 0.4: No suggestion shown.
+  4. User can always manually change the category. If they change it from an
+     auto-suggestion, this is recorded as a correction.
+  5. User submits the form. The model updates incrementally.
+
+5.2 Visual Design
+  - Auto-suggested category: Same dropdown, but with a subtle indigo dot or
+    "AI" badge next to it. Non-intrusive.
+  - Suggestion chip: Small pill below the dropdown with category emoji + name.
+    Click to accept, or ignore.
+  - No modals, no popups, no interruptions.
+
+5.3 Editing an Expense
+  - If the user changes the category during edit, treat it as a correction
+    signal (same as during creation).
+  - Don't re-suggest categories when editing — the user already made a choice.
+
+5.4 Transparency & Control
+  - Settings section (future): "Smart Categorization" toggle (on by default).
+  - "Reset learned patterns" button to revert to baseline.
+  - Optionally: A small "Why?" link on suggestions that shows top 3 keywords
+    that drove the prediction (e.g., "Based on: uber, airport").
+
+5.5 Onboarding
+  - First-time users see a one-time tooltip: "We'll learn your spending
+    patterns to suggest categories automatically. Everything stays on your
+    device."
+  - Dismissed after first interaction, stored in localStorage.
+
+================================================================================
+6. EDGE CASES & ERROR HANDLING
+================================================================================
+
+6.1 Empty or Very Short Descriptions
+  - If description is 1-2 characters, don't attempt classification.
+  - Minimum threshold: 3 characters or 1 complete word.
+
+6.2 Unknown / Novel Vocabulary
+  - Laplace smoothing handles unseen words gracefully — they contribute equally
+    to all categories, so the prior distribution dominates.
+  - The model degrades gracefully rather than failing.
+
+6.3 Ambiguous Descriptions
+  - "Amazon" could be Shopping or Entertainment (Prime Video).
+  - The model will learn the user's dominant usage pattern. If they mostly shop
+    on Amazon, it'll suggest Shopping. If they later buy Prime Video, the
+    correction teaches the model, but Amazon will still lean Shopping unless
+    the user's behavior shifts significantly.
+  - This is acceptable — perfect disambiguation requires context the
+    description alone can't provide.
+
+6.4 Category Distribution Drift
+  - Over time, a user's spending patterns change (e.g., moved to a new city,
+    started driving instead of using transit).
+  - Solution: Exponential decay weighting — recent expenses have more influence
+    than old ones. Implement by periodically (every 100 expenses) multiplying
+    all word counts by a decay factor (0.95) before adding new data.
+
+6.5 localStorage Quota
+  - The model's localStorage footprint is ~20-50 KB. Even with 5000+ expenses,
+    it's unlikely to exceed 100 KB. This is negligible against the 5-10 MB
+    localStorage quota.
+  - If localStorage is full, catch the QuotaExceededError and disable model
+    persistence (run predictions from a baseline model only).
+
+6.6 Corrupted Model Data
+  - Wrap model loading in try/catch. If JSON.parse fails or the model schema
+    is invalid, silently revert to the baseline model and log a warning to
+    the console.
+  - Include a version field for schema migrations.
+
+6.7 All Expenses in One Category
+  - If a user categorizes 95% of expenses as "Food", the model will predict
+    Food for everything. This is actually correct behavior — if the user
+    mostly buys food, Food is the best default prediction.
+  - The prior probability naturally handles this.
+
+================================================================================
+7. DEPLOYMENT & MAINTENANCE STRATEGY
+================================================================================
+
+7.1 Implementation Phases
+
+  Phase 1 — Core Classifier (Week 1)
+    Files to create:
+      src/lib/categorizer.ts       — Naive Bayes classifier class
+      src/lib/categorizer-baseline.ts — Seed model data (static JSON)
+    Files to modify:
+      src/types/expense.ts         — Add MLModel type, CategorySuggestion type
+      src/lib/storage.ts           — Add model persistence functions
+      src/hooks/useExpenses.ts     — Integrate prediction on description change
+      src/components/ExpenseForm.tsx — Add suggestion UI
+
+  Phase 2 — UX Polish (Week 2)
+    - Suggestion chips with animations
+    - Confidence-based UI (auto-select vs. suggest vs. hide)
+    - "Auto-suggested" badge styling
+    - Debounced prediction on keystroke
+
+  Phase 3 — Active Learning (Week 3)
+    - Track corrections (suggested vs. actual category)
+    - Exponential decay for temporal adaptation
+    - "Reset suggestions" setting
+    - Accuracy tracking (what % of suggestions are accepted)
+
+  Phase 4 — Advanced Features (Future)
+    - Amount-based features
+    - Time-based features
+    - TF-IDF upgrade
+    - Bigram support
+    - Optional Claude API integration for complex descriptions
+
+7.2 Bundle Size Impact
+  - Naive Bayes classifier: ~3-5 KB minified + gzipped
+  - Baseline model: ~2-3 KB
+  - Total: ~5-8 KB — negligible impact on the current bundle
+
+7.3 Testing Strategy
+  - Unit tests for the classifier:
+    - Train with known data, verify predictions
+    - Test Laplace smoothing with unseen words
+    - Test incremental updates
+    - Test correction handling
+    - Test edge cases (empty string, single character, etc.)
+  - Integration tests:
+    - Verify model persists across page reloads
+    - Verify suggestions appear in the form
+    - Verify corrections update the model
+  - Manual testing:
+    - Create 20-30 expenses across categories
+    - Verify suggestions become increasingly accurate
+    - Test cold start with baseline model
+
+7.4 Monitoring & Iteration
+  - Track suggestion acceptance rate in localStorage:
+      { accepted: number, rejected: number, noSuggestion: number }
+  - If acceptance rate < 50% after 50+ predictions, the model may need
+    tuning (adjust confidence thresholds, retrain from scratch, etc.)
+  - Surface this metric in a future "Smart Categorization" settings panel.
+
+7.5 Rollback Plan
+  - The feature is entirely additive — no existing functionality changes.
+  - If suggestions are poor, users simply ignore them (manual selection
+    still works exactly as before).
+  - The "Smart Categorization" toggle allows users to disable it entirely.
+  - Removing the feature = delete categorizer files + revert form changes.
+
+================================================================================
+SUMMARY
+================================================================================
+
+The recommended approach is a client-side Naive Bayes text classifier that:
+  - Runs entirely in the browser (zero network calls, full privacy)
+  - Ships with a seed model for instant suggestions from day one
+  - Learns incrementally from every expense and correction
+  - Adds ~5-8 KB to the bundle
+  - Requires no backend, no API keys, no external dependencies
+  - Degrades gracefully (suggestions are always optional)
+
+This gives users the "smart" experience of auto-categorization while
+respecting the app's client-only architecture and privacy-first design.
+================================================================================
