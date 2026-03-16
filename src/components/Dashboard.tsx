@@ -3,6 +3,7 @@
 import { useMemo } from "react";
 import { Expense, CATEGORIES } from "@/types/expense";
 import { formatCurrency, getCategoryColor } from "@/lib/utils";
+import { useTheme } from "@/contexts/ThemeContext";
 import {
   PieChart,
   Pie,
@@ -22,6 +23,9 @@ interface DashboardProps {
 }
 
 export default function Dashboard({ expenses }: DashboardProps) {
+  const { resolvedTheme } = useTheme();
+  const isDark = resolvedTheme === "dark";
+
   const stats = useMemo(() => {
     const now = new Date();
     const monthStart = startOfMonth(now);
@@ -49,7 +53,6 @@ export default function Dashboard({ expenses }: DashboardProps) {
       ? byCategory.reduce((a, b) => (a.value > b.value ? a : b))
       : null;
 
-    // Last 6 months spending
     const monthlyData: { month: string; amount: number }[] = [];
     for (let i = 5; i >= 0; i--) {
       const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
@@ -79,19 +82,16 @@ export default function Dashboard({ expenses }: DashboardProps) {
       label: "Total Spending",
       value: formatCurrency(stats.total),
       sublabel: `${expenses.length} expenses`,
-      color: "bg-indigo-50 text-indigo-600",
     },
     {
       label: "This Month",
       value: formatCurrency(stats.monthlyTotal),
       sublabel: format(new Date(), "MMMM yyyy"),
-      color: "bg-emerald-50 text-emerald-600",
     },
     {
       label: "Monthly Average",
       value: formatCurrency(stats.avgMonthly),
       sublabel: "Last 6 months",
-      color: "bg-amber-50 text-amber-600",
     },
     {
       label: "Top Category",
@@ -99,9 +99,16 @@ export default function Dashboard({ expenses }: DashboardProps) {
       sublabel: stats.topCategory
         ? formatCurrency(stats.topCategory.value)
         : "No data",
-      color: "bg-rose-50 text-rose-600",
     },
   ];
+
+  const tooltipStyle = {
+    borderRadius: "12px",
+    border: isDark ? "1px solid #374151" : "1px solid #e2e8f0",
+    boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.05)",
+    backgroundColor: isDark ? "#1f2937" : "#ffffff",
+    color: isDark ? "#f3f4f6" : "#111827",
+  };
 
   return (
     <div className="space-y-6">
@@ -109,55 +116,51 @@ export default function Dashboard({ expenses }: DashboardProps) {
         {summaryCards.map((card) => (
           <div
             key={card.label}
-            className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5"
+            className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-5 transition-colors"
           >
-            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+            <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
               {card.label}
             </p>
-            <p className="text-xl font-bold text-gray-900 mt-1">
+            <p className="text-xl font-bold text-gray-900 dark:text-gray-100 mt-1">
               {card.value}
             </p>
-            <p className="text-xs text-gray-400 mt-0.5">{card.sublabel}</p>
+            <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">{card.sublabel}</p>
           </div>
         ))}
       </div>
 
       {expenses.length > 0 && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-            <h3 className="text-sm font-semibold text-gray-900 mb-4">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-6 transition-colors">
+            <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-4">
               Monthly Spending
             </h3>
             <ResponsiveContainer width="100%" height={240}>
               <BarChart data={stats.monthlyData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                <CartesianGrid strokeDasharray="3 3" stroke={isDark ? "#374151" : "#f1f5f9"} />
                 <XAxis
                   dataKey="month"
-                  tick={{ fontSize: 12, fill: "#94a3b8" }}
+                  tick={{ fontSize: 12, fill: isDark ? "#9ca3af" : "#94a3b8" }}
                   axisLine={false}
                   tickLine={false}
                 />
                 <YAxis
-                  tick={{ fontSize: 12, fill: "#94a3b8" }}
+                  tick={{ fontSize: 12, fill: isDark ? "#9ca3af" : "#94a3b8" }}
                   axisLine={false}
                   tickLine={false}
                   tickFormatter={(v) => `$${v}`}
                 />
                 <Tooltip
                   formatter={(value) => [formatCurrency(Number(value)), "Spent"]}
-                  contentStyle={{
-                    borderRadius: "12px",
-                    border: "1px solid #e2e8f0",
-                    boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.05)",
-                  }}
+                  contentStyle={tooltipStyle}
                 />
                 <Bar dataKey="amount" fill="#6366f1" radius={[6, 6, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
 
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-            <h3 className="text-sm font-semibold text-gray-900 mb-4">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-6 transition-colors">
+            <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-4">
               By Category
             </h3>
             {stats.byCategory.length > 0 ? (
@@ -179,11 +182,7 @@ export default function Dashboard({ expenses }: DashboardProps) {
                     </Pie>
                     <Tooltip
                       formatter={(value) => formatCurrency(Number(value))}
-                      contentStyle={{
-                        borderRadius: "12px",
-                        border: "1px solid #e2e8f0",
-                        boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.05)",
-                      }}
+                      contentStyle={tooltipStyle}
                     />
                   </PieChart>
                 </ResponsiveContainer>
@@ -196,10 +195,10 @@ export default function Dashboard({ expenses }: DashboardProps) {
                           className="w-3 h-3 rounded-full flex-shrink-0"
                           style={{ backgroundColor: cat.color }}
                         />
-                        <span className="text-xs text-gray-600 flex-1">
+                        <span className="text-xs text-gray-600 dark:text-gray-400 flex-1">
                           {cat.name}
                         </span>
-                        <span className="text-xs font-medium text-gray-900">
+                        <span className="text-xs font-medium text-gray-900 dark:text-gray-100">
                           {formatCurrency(cat.value)}
                         </span>
                       </div>
@@ -207,7 +206,7 @@ export default function Dashboard({ expenses }: DashboardProps) {
                 </div>
               </div>
             ) : (
-              <p className="text-sm text-gray-400 text-center py-12">
+              <p className="text-sm text-gray-400 dark:text-gray-500 text-center py-12">
                 No data to display
               </p>
             )}

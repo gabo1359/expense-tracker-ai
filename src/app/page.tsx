@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useExpenses } from "@/hooks/useExpenses";
 import { Expense } from "@/types/expense";
 import { exportToCSV } from "@/lib/utils";
+import { useTheme } from "@/contexts/ThemeContext";
 import ExpenseForm from "@/components/ExpenseForm";
 import ExpenseList from "@/components/ExpenseList";
 import Dashboard from "@/components/Dashboard";
@@ -22,6 +23,7 @@ export default function Home() {
     isLoaded,
   } = useExpenses();
 
+  const { resolvedTheme, toggleTheme } = useTheme();
   const [activeTab, setActiveTab] = useState<Tab>("dashboard");
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
@@ -53,7 +55,7 @@ export default function Home() {
   if (!isLoaded) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-pulse text-gray-400 text-sm">Loading...</div>
+        <div className="animate-pulse text-gray-400 dark:text-gray-500 text-sm">Loading...</div>
       </div>
     );
   }
@@ -61,7 +63,7 @@ export default function Home() {
   return (
     <div className="min-h-screen">
       {/* Header */}
-      <header className="bg-white border-b border-gray-100 sticky top-0 z-10">
+      <header className="bg-white dark:bg-gray-800 border-b border-gray-100 dark:border-gray-700 sticky top-0 z-10 transition-colors">
         <div className="max-w-6xl mx-auto px-4 sm:px-6">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center gap-3">
@@ -80,19 +82,19 @@ export default function Home() {
                   />
                 </svg>
               </div>
-              <h1 className="text-lg font-bold text-gray-900">
+              <h1 className="text-lg font-bold text-gray-900 dark:text-gray-100">
                 Expense Tracker
               </h1>
             </div>
 
             <div className="flex items-center gap-2">
-              <nav className="flex bg-gray-100 rounded-xl p-1">
+              <nav className="flex bg-gray-100 dark:bg-gray-700 rounded-xl p-1">
                 <button
                   onClick={() => setActiveTab("dashboard")}
                   className={`px-4 py-1.5 rounded-lg text-sm font-medium transition ${
                     activeTab === "dashboard"
-                      ? "bg-white text-gray-900 shadow-sm"
-                      : "text-gray-500 hover:text-gray-700"
+                      ? "bg-white dark:bg-gray-600 text-gray-900 dark:text-gray-100 shadow-sm"
+                      : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
                   }`}
                 >
                   Dashboard
@@ -101,18 +103,34 @@ export default function Home() {
                   onClick={() => setActiveTab("expenses")}
                   className={`px-4 py-1.5 rounded-lg text-sm font-medium transition ${
                     activeTab === "expenses"
-                      ? "bg-white text-gray-900 shadow-sm"
-                      : "text-gray-500 hover:text-gray-700"
+                      ? "bg-white dark:bg-gray-600 text-gray-900 dark:text-gray-100 shadow-sm"
+                      : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
                   }`}
                 >
                   Expenses
                 </button>
               </nav>
 
+              <button
+                onClick={toggleTheme}
+                className="ml-1 p-2 text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-xl transition"
+                title={`Switch to ${resolvedTheme === "light" ? "dark" : "light"} mode`}
+              >
+                {resolvedTheme === "light" ? (
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+                  </svg>
+                ) : (
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+                  </svg>
+                )}
+              </button>
+
               {expenses.length > 0 && (
                 <button
                   onClick={() => exportToCSV(expenses)}
-                  className="ml-2 px-3 py-1.5 text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-xl transition"
+                  className="px-3 py-1.5 text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-xl transition"
                   title="Export to CSV"
                 >
                   <svg
@@ -170,19 +188,19 @@ export default function Home() {
 
       {/* Delete confirmation modal */}
       {showDeleteConfirm && (
-        <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-xl p-6 max-w-sm w-full">
-            <h3 className="text-lg font-semibold text-gray-900">
+        <div className="fixed inset-0 bg-black/20 dark:bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6 max-w-sm w-full">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
               Delete Expense
             </h3>
-            <p className="text-sm text-gray-500 mt-2">
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
               Are you sure you want to delete this expense? This action cannot
               be undone.
             </p>
             <div className="flex gap-3 mt-6">
               <button
                 onClick={() => setShowDeleteConfirm(null)}
-                className="flex-1 px-4 py-2.5 border border-gray-200 text-gray-600 rounded-xl text-sm font-medium hover:bg-gray-50 transition"
+                className="flex-1 px-4 py-2.5 border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 rounded-xl text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-700 transition"
               >
                 Cancel
               </button>

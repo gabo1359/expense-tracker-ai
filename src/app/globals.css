@@ -7,6 +7,10 @@
   scrollbar-color: #cbd5e1 transparent;
 }
 
+.dark * {
+  scrollbar-color: #475569 transparent;
+}
+
 input[type="number"]::-webkit-inner-spin-button,
 input[type="number"]::-webkit-outer-spin-button {
   -webkit-appearance: none;
@@ -15,4 +19,10 @@ input[type="number"]::-webkit-outer-spin-button {
 
 input[type="number"] {
   -moz-appearance: textfield;
+}
+
+/* Dark mode color-scheme for native inputs (date pickers, etc.) */
+.dark input[type="date"],
+.dark select {
+  color-scheme: dark;
 }
