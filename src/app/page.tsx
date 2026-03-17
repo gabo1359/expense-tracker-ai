@@ -8,8 +8,9 @@ import { useTheme } from "@/contexts/ThemeContext";
 import ExpenseForm from "@/components/ExpenseForm";
 import ExpenseList from "@/components/ExpenseList";
 import Dashboard from "@/components/Dashboard";
+import MonthlyInsights from "@/components/MonthlyInsights";
 
-type Tab = "dashboard" | "expenses";
+type Tab = "dashboard" | "expenses" | "insights";
 
 export default function Home() {
   const {
@@ -111,6 +112,16 @@ export default function Home() {
                 >
                   Expenses
                 </button>
+                <button
+                  onClick={() => setActiveTab("insights")}
+                  className={`px-4 py-1.5 rounded-lg text-sm font-medium transition ${
+                    activeTab === "insights"
+                      ? "bg-white dark:bg-gray-600 text-gray-900 dark:text-gray-100 shadow-sm"
+                      : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
+                  }`}
+                >
+                  Insights
+                </button>
               </nav>
 
               <select
@@ -174,6 +185,12 @@ export default function Home() {
           <div className="space-y-6">
             <Dashboard expenses={expenses} baseCurrency={baseCurrency} />
             <ExpenseForm onSubmit={addExpense} baseCurrency={baseCurrency} />
+          </div>
+        )}
+
+        {activeTab === "insights" && (
+          <div className="max-w-lg mx-auto">
+            <MonthlyInsights expenses={expenses} baseCurrency={baseCurrency} />
           </div>
         )}
 
